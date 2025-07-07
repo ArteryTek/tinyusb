@@ -36,6 +36,7 @@
 
 #if CFG_TUH_ENABLED
 #include "host/hcd.h"
+#include "host/usbh.h"
 #endif
 
 #include "dwc2_common.h"
@@ -88,11 +89,13 @@ static void phy_fs_init(dwc2_regs_t* dwc2) {
 
 static void phy_hs_init(dwc2_regs_t* dwc2) {
   uint32_t gusbcfg = dwc2->gusbcfg;
+  const dwc2_ghwcfg2_t ghwcfg2 = {.value = dwc2->ghwcfg2};
+  const dwc2_ghwcfg4_t ghwcfg4 = {.value = dwc2->ghwcfg4};
 
   // De-select FS PHY
   gusbcfg &= ~GUSBCFG_PHYSEL;
 
-  if (dwc2->ghwcfg2_bm.hs_phy_type == GHWCFG2_HSPHY_ULPI) {
+  if (ghwcfg2.hs_phy_type == GHWCFG2_HSPHY_ULPI) {
     TU_LOG(DWC2_COMMON_DEBUG, "Highspeed ULPI PHY init\r\n");
 
     // Select ULPI PHY (external)
@@ -116,7 +119,7 @@ static void phy_hs_init(dwc2_regs_t* dwc2) {
     gusbcfg &= ~GUSBCFG_ULPI_UTMI_SEL;
 
     // Set 16-bit interface if supported
-    if (dwc2->ghwcfg4_bm.phy_data_width) {
+    if (ghwcfg4.phy_data_width) {
       gusbcfg |= GUSBCFG_PHYIF16; // 16 bit
 
       /* at32f402_405 does not actually support 16-bit */
@@ -133,7 +136,7 @@ static void phy_hs_init(dwc2_regs_t* dwc2) {
   dwc2->gusbcfg = gusbcfg;
 
   // mcu specific phy init
-  dwc2_phy_init(dwc2, dwc2->ghwcfg2_bm.hs_phy_type);
+  dwc2_phy_init(dwc2, ghwcfg2.hs_phy_type);
 
   // Reset core after selecting PHY
   reset_core(dwc2);
@@ -152,7 +155,7 @@ static void phy_hs_init(dwc2_regs_t* dwc2) {
   dwc2->gusbcfg = gusbcfg;
 
   // MCU specific PHY update post reset
-  dwc2_phy_update(dwc2, dwc2->ghwcfg2_bm.hs_phy_type);
+  dwc2_phy_update(dwc2, ghwcfg2.hs_phy_type);
 }
 
 static bool check_dwc2(dwc2_regs_t* dwc2) {
@@ -183,7 +186,6 @@ static bool check_dwc2(dwc2_regs_t* dwc2) {
 //--------------------------------------------------------------------
 bool dwc2_core_is_highspeed(dwc2_regs_t* dwc2, tusb_role_t role) {
   (void)dwc2;
-
 #if CFG_TUD_ENABLED
   if (role == TUSB_ROLE_DEVICE && !TUD_OPT_HIGH_SPEED) {
     return false;
@@ -195,7 +197,8 @@ bool dwc2_core_is_highspeed(dwc2_regs_t* dwc2, tusb_role_t role) {
   }
 #endif
 
-  return dwc2->ghwcfg2_bm.hs_phy_type != GHWCFG2_HSPHY_NOT_SUPPORTED;
+  const dwc2_ghwcfg2_t ghwcfg2 = {.value = dwc2->ghwcfg2};
+  return ghwcfg2.hs_phy_type != GHWCFG2_HSPHY_NOT_SUPPORTED;
 }
 
 /* dwc2 has several PHYs option
